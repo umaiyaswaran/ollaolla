@@ -1,10 +1,13 @@
 
 import { useEffect, useState } from "react";
+import { Link, useLocation } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 import { useSimStore } from "@/store/simStore";
 
 export default function Header() {
   const nodes = useSimStore((s) => s.nodes);
   const [time, setTime] = useState(() => Date.now());
+  const location = useLocation();
 
   useEffect(() => {
     const i = setInterval(() => setTime(Date.now()), 1000);
@@ -28,13 +31,32 @@ export default function Header() {
           Nereus <span className="text-muted-foreground">// Autonomic Layer</span>
         </h1>
       </div>
-      <div className="flex items-center gap-6 text-xs font-mono text-muted-foreground">
-        <div className="flex gap-2 items-center">
+      <div className="flex items-center gap-4 text-xs font-mono">
+        <div className="flex gap-2 items-center text-muted-foreground">
           <span className="text-bio-cyan/50">GLOBAL_STATE</span>
           <span className={state.color}>{state.label}</span>
         </div>
         <div className="h-4 w-px bg-white/10" />
-        <div>EPOCH: {Math.floor(time / 1000)}</div>
+        <div className="text-muted-foreground">EPOCH: {Math.floor(time / 1000)}</div>
+        <div className="h-4 w-px bg-white/10" />
+        <div className="flex gap-2">
+          <Button
+            variant={location.pathname === "/" ? "default" : "outline"}
+            size="sm"
+            asChild
+            className="text-xs"
+          >
+            <Link to="/">Monitor</Link>
+          </Button>
+          <Button
+            variant={location.pathname === "/analyze" ? "default" : "outline"}
+            size="sm"
+            asChild
+            className="text-xs"
+          >
+            <Link to="/analyze">Analyze</Link>
+          </Button>
+        </div>
       </div>
     </header>
   );
