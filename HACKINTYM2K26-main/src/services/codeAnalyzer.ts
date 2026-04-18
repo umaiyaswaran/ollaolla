@@ -61,75 +61,22 @@ export async function analyzeGitHubRepo(repoUrl: string): Promise<AnalysisResult
   }
 }
 
+import { analyzeWebsiteAdvanced } from "./websiteAnalyzer";
+
 /**
- * Analyze HTTP URL (website/deployed app) - extracts meta info from HTML
+ * Analyze HTTP URL (website/deployed app) - extracts meta info and performance data
  */
 export async function analyzeHttpUrl(httpUrl: string): Promise<AnalysisResult> {
   try {
-    console.log(`Analyzing HTTP URL: ${httpUrl}`);
+    console.log(`Analyzing website: ${httpUrl}`);
     
-    let html = "";
+    // Get real website analysis
+    const websiteAnalysis = await analyzeWebsiteAdvanced(httpUrl);
     
-    // Try direct fetch first
-    try {
-      const response = await fetch(httpUrl, { 
-        method: "GET",
-        headers: {
-          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        }
-      });
-      
-      if (response.ok) {
-        html = await response.text();
-        console.log("Successfully fetched URL content");
-      }
-    } catch (fetchError) {
-      console.log("Direct fetch failed, using fallback analysis");
-      // Fallback if fetch fails (CORS, network issues, etc.)
-      html = "";
-    }
-
-    // Extract tech stack clues from the HTML or use pattern-based detection
     const services: ServiceNode[] = [];
     const databases: ServiceNode[] = [];
-    const frameworks: string[] = [];
-    const languages: string[] = [];
-
-    // Detect frameworks from URL and common patterns
-    const urlLower = httpUrl.toLowerCase();
-    const htmlLower = html.toLowerCase();
-
-    // Framework detection from URL patterns
-    if (urlLower.includes("vercel") || urlLower.includes("next")) frameworks.push("Next.js");
-    if (urlLower.includes("netlify")) frameworks.push("React");
-    if (urlLower.includes("heroku")) frameworks.push("Node.js");
-    if (urlLower.includes("render") || urlLower.includes("railway")) frameworks.push("Node.js or Python");
-
-    // Framework detection from content
-    if (htmlLower.includes("next") || htmlLower.includes("__next")) frameworks.push("Next.js");
-    if (htmlLower.includes("react") || htmlLower.includes("react-dom")) frameworks.push("React");
-    if (htmlLower.includes("vue") || htmlLower.includes("vue.js")) frameworks.push("Vue.js");
-    if (htmlLower.includes("angular") || htmlLower.includes("ng-app")) frameworks.push("Angular");
-    if (htmlLower.includes("svelte")) frameworks.push("Svelte");
-    if (htmlLower.includes("gatsby")) frameworks.push("Gatsby");
-    if (htmlLower.includes("remix")) frameworks.push("Remix");
-
-    // Remove duplicates
-    const uniqueFrameworks = Array.from(new Set(frameworks));
-
-    // Language detection
-    if (uniqueFrameworks.some(f => f.includes("Next") || f.includes("React") || f.includes("Vue") || f.includes("Angular"))) {
-      languages.push("JavaScript/TypeScript");
-    }
-    if (urlLower.includes("python") || urlLower.includes("flask") || urlLower.includes("django")) {
-      languages.push("Python");
-    }
-    if (urlLower.includes("java")) {
-      languages.push("Java");
-    }
-    if (urlLower.includes(".net") || urlLower.includes("aspnet")) {
-      languages.push(".NET");
-    }
+    const frameworks = websiteAnalysis.frameworks;
+    const languages = websiteAnalysis.languages;
 
     // Add frontend service
     services.push({
@@ -137,123 +84,126 @@ export async function analyzeHttpUrl(httpUrl: string): Promise<AnalysisResult> {
       name: "Frontend Application",
       type: "frontend",
       language: languages[0] || "JavaScript/TypeScript",
-      framework: uniqueFrameworks[0] || "Unknown",
+      framework: frameworks[0] || "Unknown",
       port: 80,
-      description: `Web application deployed at ${new URL(httpUrl).hostname}`,
+      description: `Web application at ${new URL(httpUrl).hostname}`,
     });
 
-    // Add API gateway / Backend service
-    services.push({
-      id: "gateway-api",
-      name: "API Backend",
-      type: "api",
-      description: "Backend API server",
-    });
-
-    // Add Reverse Proxy / Gateway
-    services.push({
-      id: "gateway-proxy",
-      name: "Reverse Proxy",
-      type: "gateway",
-      description: "NGINX or CloudFlare reverse proxy",
-    });
-
-    // Database detection from URL patterns
-    if (urlLower.includes("firebase") || htmlLower.includes("firebase")) {
-      databases.push({
-        id: "db-firebase",
-        name: "Firebase",
-        type: "database",
-        description: "Firebase Realtime Database",
-      });
-    } else if (urlLower.includes("mongo") || htmlLower.includes("mongodb")) {
-      databases.push({
-        id: "db-mongo",
-        name: "MongoDB",
-        type: "database",
-        description: "MongoDB database",
-      });
-    } else if (urlLower.includes("postgres") || htmlLower.includes("postgres")) {
-      databases.push({
-        id: "db-postgres",
-        name: "PostgreSQL",
-        type: "database",
-        description: "PostgreSQL database",
-      });
-    } else {
-      // Default assumption for web apps
-      databases.push({
-        id: "db-default",
-        name: "Database",
-        type: "database",
-        description: "Backend database",
+    // Add backend based on detection
+    if (websiteAnalysis.frameworks.some(f => 
+      ["Express.js", "Django", "Rails", "ASP.NET"].includes(f)
+    )) {
+      services.push({
+        id: "service-api",
+        name: "API Server",
+        type: "api",
+        language: languages.find(l => !l.includes("JavaScript")) || "Node.js",
+        framework: websiteAnalysis.frameworks.find(f => 
+          ["Express.js", "Django", "Rails", "ASP.NET"].includes(f)
+        ),
+        port: 3000,
+        description: "Backend API server",
       });
     }
 
-    // Cache layer
-    if (urlLower.includes("redis") || htmlLower.includes("redis")) {
+    // Add reverse proxy/gateway
+    if (websiteAnalysis.services.length > 0) {
+      services.push({
+        id: "gateway-proxy",
+        name: "Reverse Proxy",
+        type: "gateway",
+        description: websiteAnalysis.services.find(s => s.name === "Nginx") ? "Nginx" : "Load Balancer",
+      });
+    }
+
+    // Add CDN/Cloudflare if detected
+    if (websiteAnalysis.services.some(s => s.name === "Cloudflare")) {
+      services.push({
+        id: "cdn-cloudflare",
+        name: "Cloudflare CDN",
+        type: "gateway",
+        description: "Cloudflare edge network",
+      });
+    }
+
+    // Add detected databases
+    websiteAnalysis.databases.forEach((db, idx) => {
       databases.push({
-        id: "cache-redis",
-        name: "Redis",
-        type: "cache",
-        description: "Redis cache layer",
+        id: `db-${db.toLowerCase()}`,
+        name: db,
+        type: "database",
+        description: `${db} database instance`,
+      });
+    });
+
+    // Default database if none detected
+    if (databases.length === 0) {
+      databases.push({
+        id: "db-primary",
+        name: "Primary Database",
+        type: "database",
+        description: "Main application database",
+      });
+    }
+
+    // Add Firebase if detected
+    if (websiteAnalysis.services.some(s => s.name === "Firebase")) {
+      services.push({
+        id: "firebase-backend",
+        name: "Firebase Backend",
+        type: "api",
+        description: "Firebase Realtime Database & Functions",
       });
     }
 
     return {
       projectName: new URL(httpUrl).hostname,
-      description: `Analysis of deployed application at ${new URL(httpUrl).hostname}`,
+      description: `Analysis of ${new URL(httpUrl).hostname} - Response time: ${websiteAnalysis.metrics.responseTime.toFixed(0)}ms`,
       services,
-      dependencies: [
-        { from: "service-frontend", to: "gateway-proxy", type: "calls" },
-        { from: "gateway-proxy", to: "gateway-api", type: "routes" },
-        { from: "gateway-api", to: "db-default", type: "uses" },
-      ],
+      dependencies: services.length > 1
+        ? [
+            { from: services[0].id, to: services[1]?.id || databases[0].id, type: "calls" },
+            { from: services[1]?.id || services[0].id, to: databases[0].id, type: "uses" },
+          ]
+        : [{ from: services[0].id, to: databases[0].id, type: "uses" }],
       databases,
-      frameworks: uniqueFrameworks,
+      frameworks,
       languages,
       metrics: {
         totalServices: services.length,
         totalDatabases: databases.length,
-        complexity: "medium",
-        estimatedLoad: 1000,
-        suggestedServers: 4,
+        complexity: websiteAnalysis.estimates.complexity as any,
+        estimatedLoad: websiteAnalysis.estimates.estimatedLoad,
+        suggestedServers: websiteAnalysis.estimates.estimatedServers,
       },
-      files: {},
+      files: {
+        packageJson: {
+          description: `Website Performance: ${websiteAnalysis.metrics.responseTime.toFixed(0)}ms response time`,
+          ttfb: websiteAnalysis.metrics.performance.ttfb,
+          contentLength: websiteAnalysis.metrics.contentLength,
+          hasGzip: websiteAnalysis.metrics.hasGzip,
+          cdn: websiteAnalysis.metrics.cdn,
+          ssl: websiteAnalysis.metrics.ssl,
+        },
+      },
     };
   } catch (error) {
     console.error("HTTP URL analysis error:", error);
     
-    // Return a minimal valid result even if analysis fails
+    // Fallback result
     const hostname = new URL(httpUrl).hostname;
     return {
       projectName: hostname,
-      description: `Analysis of deployed application at ${hostname}`,
+      description: `Analysis of ${hostname}`,
       services: [
-        {
-          id: "service-frontend",
-          name: "Frontend",
-          type: "frontend",
-          description: "Frontend application",
-          port: 80,
-        },
-        {
-          id: "service-api",
-          name: "API Server",
-          type: "api",
-          description: "Backend API",
-        },
+        { id: "service-frontend", name: "Frontend", type: "frontend", description: "Frontend application", port: 80 },
+        { id: "service-api", name: "API Server", type: "api", description: "Backend API" },
       ],
       dependencies: [
         { from: "service-frontend", to: "service-api", type: "calls" },
       ],
       databases: [
-        {
-          id: "db-app",
-          name: "Database",
-          type: "database",
-          description: "Application database",
-        },
+        { id: "db-primary", name: "Database", type: "database", description: "Application database" },
       ],
       frameworks: ["Unknown"],
       languages: ["JavaScript/TypeScript"],
