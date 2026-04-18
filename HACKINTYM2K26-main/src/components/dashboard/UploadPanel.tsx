@@ -24,7 +24,12 @@ export default function UploadPanel({ onAnalyze, isAnalyzing = false }: UploadPa
       return githubRegex.test(input);
     }
     // Accept any HTTP/HTTPS URL (websites, deployed apps, etc.)
-    return input.startsWith("http://") || input.startsWith("https://");
+    try {
+      const url = new URL(input);
+      return url.protocol === "http:" || url.protocol === "https:";
+    } catch {
+      return false;
+    }
   };
 
   const handleAnalyze = async () => {
@@ -37,7 +42,9 @@ export default function UploadPanel({ onAnalyze, isAnalyzing = false }: UploadPa
     }
 
     if (!validateUrl(url)) {
-      setError("Invalid URL. Please enter a valid GitHub URL or website URL");
+      setError(
+        "Invalid URL format. Please use: https://github.com/user/repo or https://yourwebsite.com"
+      );
       return;
     }
 
@@ -49,7 +56,9 @@ export default function UploadPanel({ onAnalyze, isAnalyzing = false }: UploadPa
       setUrl("");
       setTimeout(() => setSuccess(false), 3000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Analysis failed");
+      const errorMsg = err instanceof Error ? err.message : "Analysis failed";
+      console.error("Analysis error:", errorMsg);
+      setError(errorMsg || "Failed to analyze URL. Please check the URL is accessible.");
     }
   };
 
@@ -188,10 +197,11 @@ export default function UploadPanel({ onAnalyze, isAnalyzing = false }: UploadPa
 
       {/* Help Text */}
       <div className="text-[10px] text-muted-foreground space-y-1 p-2 bg-muted/30 rounded">
-        <p>✓ GitHub: Analyzes public repositories</p>
-        <p>✓ Websites: Extracts architecture info from deployed apps</p>
-        <p>✓ Local ZIP: Upload your codebase as ZIP file</p>
-        <p>✓ Generates: 3D topology, recommendations, predictions</p>
+        <p>✓ GitHub: https://github.com/user/repo</p>
+        <p>✓ Websites: https://example.com, https://app.vercel.app</p>
+        <p>✓ Any HTTPS/HTTP: Your deployed applications</p>
+        <p>✓ Local ZIP: Upload your codebase as .zip</p>
+        <p>✓ Generates: 3D topology, ML predictions, recommendations</p>
       </div>
     </Card>
   );

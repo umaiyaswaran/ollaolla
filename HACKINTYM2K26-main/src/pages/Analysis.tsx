@@ -31,8 +31,11 @@ const AnalysisPage = () => {
       if (type === "github") {
         analysis = await analyzeGitHubRepo(data as string);
       } else if (type === "http") {
-        analysis = await analyzeHttpUrl(data as string);
+        const url = data as string;
+        console.log(`Analyzing HTTP URL: ${url}`);
+        analysis = await analyzeHttpUrl(url);
       } else if (type === "local-file") {
+        console.log("Analyzing local ZIP file");
         analysis = await analyzeLocalZip(data as File);
       } else {
         throw new Error("Unknown analysis type");
@@ -48,7 +51,9 @@ const AnalysisPage = () => {
       const prediction = predictDeploymentSuccess(analysis);
       setDeploymentPrediction(prediction);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Analysis failed");
+      const errorMsg = err instanceof Error ? err.message : "Analysis failed";
+      console.error("Analysis error:", errorMsg);
+      setError(errorMsg);
     } finally {
       setIsAnalyzing(false);
     }
