@@ -4,6 +4,7 @@ import { MonitoringModule } from './modules/monitoring/monitoring.module';
 import { AnalysisModule } from './modules/analysis/analysis.module';
 import { FeaturesModule } from './modules/features/features.module';
 import { HealthModule } from './modules/health/health.module';
+import { NetworkHealingModule } from './modules/network-healing/network-healing.module';
 import { ConfigService } from './common/config/config.service';
 
 @Module({
@@ -13,6 +14,7 @@ import { ConfigService } from './common/config/config.service';
     AnalysisModule,
     FeaturesModule,
     HealthModule,
+    NetworkHealingModule,
   ],
   controllers: [],
   providers: [ConfigService],

@@ -56,6 +56,14 @@ export default function Header() {
           >
             <Link to="/analyze">Analyze</Link>
           </Button>
+          <Button
+            variant={location.pathname === "/network-healing" ? "default" : "outline"}
+            size="sm"
+            asChild
+            className="text-xs"
+          >
+            <Link to="/network-healing">Network Healing</Link>
+          </Button>
         </div>
       </div>
     </header>
