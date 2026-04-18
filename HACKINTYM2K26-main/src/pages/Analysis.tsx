@@ -2,6 +2,7 @@ import { useState } from "react";
 import Header from "@/components/dashboard/Header";
 import UploadPanel from "@/components/dashboard/UploadPanel";
 import AnalysisResults from "@/components/dashboard/AnalysisResults";
+import ArchitectureVisualizer from "@/components/dashboard/ArchitectureVisualizer";
 import NetworkGraph3D from "@/components/dashboard/NetworkGraph3D";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -198,7 +199,7 @@ const AnalysisPage = () => {
             </div>
 
             <div className="flex-1">
-              <NetworkGraph3D />
+              <ArchitectureVisualizer analysis={analysisData} />
             </div>
 
             {/* Architecture Summary */}
